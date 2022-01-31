@@ -1,0 +1,302 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Topics\n",
+    "\n",
+    "## 1. ANN on Facial Recognition\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%matplotlib inline\n",
+    "# All imports\n",
+    "\n",
+    "import numpy as np\n",
+    "import matplotlib.pyplot as plt\n",
+    "\n",
+    "import sklearn\n",
+    "from sklearn.neural_network import MLPClassifier\n",
+    "from sklearn.model_selection import train_test_split\n",
+    "from sklearn.metrics import classification_report, confusion_matrix\n",
+    "\n",
+    "# -------------> The following three are new imports <------------------\n",
+    "from time import time\n",
+    "\n",
+    "np.set_printoptions(formatter={'float': '{:.5f}'.format})\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## The Confusion Matrix:  Evaluate the accuracy of a classification.\n",
+    "\n",
+    "## Definition: a confusion matrix C is such that C\\_{i, j} is equal to the number of observations known to be in group i but predicted to be in group j.\n",
+    "\n",
+    "From: http://scikit-learn.org/stable/modules/generated/sklearn.metrics.confusion_matrix.html\n",
+    "\n",
+    "\n",
+    "## Each row should add up to the number of objects in each class."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 7,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "array([[3, 0, 0],\n",
+       "       [0, 0, 1],\n",
+       "       [1, 0, 2]])"
+      ]
+     },
+     "execution_count": 7,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "'''\n",
+    "3 dogs: all correctly classified\n",
+    "\n",
+    "3 cats: 1 is incorrectly classified as dog, 2 classficied correctly\n",
+    "\n",
+    "1 racoon: incorrectly classified as cat\n",
+    "\n",
+    "'''\n",
+    "\n",
+    "y_true = [\"cat\", \"dog\", \"cat\", \"cat\", \"dog\", \"racoon\", \"dog\"]\n",
+    "y_pred = [\"dog\", \"dog\", \"cat\", \"cat\", \"dog\", \"cat\", \"dog\"]\n",
+    "confusion_matrix(y_true, y_pred, labels=[\"dog\", \"racoon\", \"cat\"])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Applying ANN to Facial Recogition"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from sklearn.datasets import fetch_lfw_people\n",
+    "\n",
+    "lfw_people = fetch_lfw_people(min_faces_per_person=70, resize=0.4)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Mini-breakout\n",
+    "## Determine how to extract information from the object:\n",
+    "\n",
+    "      lfw_people"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "<class 'sklearn.utils.Bunch'>\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(type(lfw_people))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Next several cells: Solution to mini-breakout."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "['DESCR', 'data', 'images', 'target', 'target_names']"
+      ]
+     },
+     "execution_count": 12,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "dir(lfw_people)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 13,
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "dict_keys(['data', 'images', 'target', 'target_names', 'DESCR'])"
+      ]
+     },
+     "execution_count": 13,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "lfw_people.keys()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 14,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Number of distinct individuals: (7,)\n",
+      "Number of images: (1288,)\n"
+     ]
+    }
+   ],
+   "source": [
+    "print(\"Number of distinct individuals:\", lfw_people.target_names.shape)\n",
+    "print(\"Number of images:\", lfw_people.target.shape)\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "(1288, 1850)\n",
+      "Total dataset size:\n",
+      "n_samples: 1288\n",
+      "n_features: 1850\n",
+      "n_classes: 7\n"
+     ]
+    }
+   ],
+   "source": [
+    "# introspect the images arrays to find the shapes (for plotting)\n",
+    "n_samples, h, w = lfw_people.images.shape\n",
+    "\n",
+    "# for machine learning we use the 2 data directly (as relative pixel\n",
+    "# positions info is ignored by this model)\n",
+    "X = lfw_people.data\n",
+    "n_features = X.shape[1]\n",
+    "print(X.shape)\n",
+    "\n",
+    "n_features = X.shape[1]\n",
+    "\n",
+    "# the label to predict is the id of the person\n",
+    "y = lfw_people.target\n",
+    "target_names = lfw_people.target_names\n",
+    "n_classes = target_names.shape[0]\n",
+    "\n",
+    "print(\"Total dataset size:\")\n",
+    "print(\"n_samples: {:d}\".format(n_samples))\n",
+    "print(\"n_features: {:d}\".format(n_features))\n",
+    "print(\"n_classes: {:d}\".format(n_classes))\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Breakout:\n",
+    "\n",
+    "## Apply ANN to Facial Recogition\n",
+    "\n",
+    "## Part I: Apply it to one person -- say the first in the data set\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## Part II: Apply it to all individuals with 70 pictures or more.\n",
+    "\n",
+    "1. Split into a training and testing set and use the following random_state (I'll explain later)\n",
+    "\n",
+    "        (test_size = .25, random_state=42)\n",
+    "\n",
+    "2. Train a NN classification model using the training set.  \n",
+    "\n",
+    "3. Report the score of the trainied NN applied to the training data.\n",
+    "\n",
+    "4. Apply the trained NN to the testing data, and report the score.\n",
+    "\n",
+    "5. Print the sklearn classification report and confusion_matrix \n",
+    "\n",
+    "6. Time the training and testing stages. Google how to use the time module\n",
+    "\n",
+    "        from time import time\n",
+    "\n",
+    "7. Use one intermediate layer.  You may vary the number of neurons.  But it shouldn't be greater than 1000.\n",
+    "\n",
+    "8. Show the first 12 images in the testing set in a 3 by 4 arrangement for human inspection.  The title should show the predicted name and the true name of the person.\n",
+    "\n",
+    "9. Show ROC and calculate AUC for Colin Powell"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# End of Week13-1"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.7.3"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}
